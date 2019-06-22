@@ -1,7 +1,12 @@
 //jshint esversion:8
+const axios = require('axios')
+
 
 // Google API Key
 const GOOGLEAPIKEY = 'AIzaSyARYSwyEt6vuwBLJ7X9H09l8N2yigdO3ME';
+
+// Typeform API Key
+const TYPEFORMAPIKEY = 'EH9BjBxhQZmsL47bTXypDRS8ZLEdcG1eaPhLJynVvygs';
 
 // Load Standard Library API
 const lib = require('lib');
@@ -25,6 +30,11 @@ const googleMaps = require('@google/maps').createClient({
     key: GOOGLEAPIKEY,
 });
 
+// Typeform Client
+const typeform = require('@typeform/api-client').createClient({
+    token: TYPEFORMAPIKEY,
+})
+
 // Helper function to sort results by rating
 function sortByRating(searchResponses) {
   var result = searchResponses.sort(function(a,b) {
@@ -43,17 +53,22 @@ function arrayContains(arr1, arr2) {
 
 
 // helper function to get the user's location with their permission
-window.onload = function() {
-  var startPos;
-  var locationObject = {};
-  var geoSuccess = function(position) {
-    startPos = position;
-    locationObject.latitude = startPos.coords.latitude;
-    locationObject.longitude = startPos.coords.longitude;
-  };
-  navigator.geolocation.getCurrentPosition(geoSuccess);
-  return locationObject;
-};
+// window.onload = function() {
+//   var startPos;
+//   var locationObject = {};
+//   var geoSuccess = function(position) {
+//     startPos = position;
+//     locationObject.latitude = startPos.coords.latitude;
+//     locationObject.longitude = startPos.coords.longitude;
+//   };
+//   navigator.geolocation.getCurrentPosition(geoSuccess);
+//   return locationObject;
+// };
+
+function getTypeformData() {
+    const formaz = typeform.forms.get({uid: 'FLdzER'});
+    return formaz;
+}
 
 // Calling google's API
 exports.test = function(req, res) {
@@ -84,3 +99,43 @@ exports.test = function(req, res) {
         res.send(JSON.stringify(sortByRating(searchResults)));
     });
 };
+
+exports.testtwo = function (req, res) {
+  // fetch('https://api.typeform.com/forms/FLdzER/responses', {
+  //   headers: {
+  //     Authorization: 'bearer EH9BjBxhQZmsL47bTXypDRS8ZLEdcG1eaPhLJynVvygs'
+  //   }
+  // })
+  // .then(resp => {
+  //   res.send(resp.json())
+  // })
+  // https.get('https://api.typeform.com/forms/FLdzER/responses', {
+  //   headers: {
+  //     Authorization: 'bearer EH9BjBxhQZmsL47bTXypDRS8ZLEdcG1eaPhLJynVvygs'
+  //   }
+  // }, (resp) => {
+  //   res.send(resp.json())
+  // })
+  var data = {}  
+
+  axios.get('https://api.typeform.com/forms/FLdzER/responses', {
+    headers: {
+          Authorization: 'bearer EH9BjBxhQZmsL47bTXypDRS8ZLEdcG1eaPhLJynVvygs'
+        }
+  })
+  .then( function (response) {
+    return response
+  })
+  .then((resp) => {
+    //console.log(resp.data.items[0].answers[0].choice.label)
+    data['cuisine'] = resp.data.items[0].answers[0].choice.label;
+    data['priceFactor'] = resp.data.items[0].answers[1].number;
+    data['address'] = resp.data.items[0].answers[2].text;
+    data['distance'] = resp.data.items[0].answers[3].text
+    console.log(data)
+    res.send(data)
+  }).catch(() => {
+    res.send('caught something')
+  })
+  
+}
