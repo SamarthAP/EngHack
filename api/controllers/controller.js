@@ -1,28 +1,45 @@
 //jshint esversion:8
+const axios = require('axios');
+const https = require('https');
+const request = require('request');
 
 // Google API Key
 const GOOGLEAPIKEY = 'AIzaSyARYSwyEt6vuwBLJ7X9H09l8N2yigdO3ME';
+
+// Typeform API Key
+const TYPEFORMAPIKEY = 'EH9BjBxhQZmsL47bTXypDRS8ZLEdcG1eaPhLJynVvygs';
 
 // Load Standard Library API
 const lib = require('lib');
 const sms = lib.utils.sms['@1.0.11'];
 
 // async function to send a text message given a number and message
-const sendText = async function(number, message) {
+const sendSingleText = async function(number, address) {
+  var mapsLink = 'https://maps.google.com/?q=' + address;
   let result = await sms({
   to: number, // (required)
-  body: message // (required)
-});
+  body: "Here is the link to get directions to the restaurant you've chosen to go to: " + mapsLink
+  });
+};
+
+exports.sendText = function (req, res) {
+  var restaurantAddress = req.body.restaurantAddress;
+  for (var number in req.body) {
+    var phoneNumber = req.body[number].phoneNumber;
+    sendSingleText(phoneNumber, restaurantAddress);
+  }
 };
 
 const SEARCHTYPES = ["bar", "restaurant", "food"]; // filtering results to maintain result accuracy
-var addressHolder = "100 City Centre Dr, Mississauga, ON L5B 2C9";
-var cuisineHolder = "Italian";
-// var radiusHolder = 50000;
 
 // Load Google Maps API
 const googleMaps = require('@google/maps').createClient({
     key: GOOGLEAPIKEY,
+});
+
+// Typeform Client
+const typeform = require('@typeform/api-client').createClient({
+    token: TYPEFORMAPIKEY,
 });
 
 // Helper function to sort results by rating
@@ -41,46 +58,66 @@ function arrayContains(arr1, arr2) {
   });
 }
 
-
-// helper function to get the user's location with their permission
-window.onload = function() {
-  var startPos;
-  var locationObject = {};
-  var geoSuccess = function(position) {
-    startPos = position;
-    locationObject.latitude = startPos.coords.latitude;
-    locationObject.longitude = startPos.coords.longitude;
-  };
-  navigator.geolocation.getCurrentPosition(geoSuccess);
-  return locationObject;
-};
+function getTypeformData() {
+    const form = typeform.forms.get({uid: 'FLdzER'});
+    return form;
+}
 
 // Calling google's API
 exports.test = function(req, res) {
+    // res.send('Hello');
     var searchResults = []; // blank array to hold sorted search results
+    // var typeformData = getTypeformData();
+    // console.log(typeformData);
+    // var cuisine = typeformData.cuisine;
+    // var priceFactor = typeformData.priceFactor;
+    // var address = typeformData.address;
+    // var radiusKM = typeformData.distance;
+    getTypeformData().then((resp) => {
+        let cuisine = resp.data.items[0].answers[0].choice.label;
+        let priceFactor = resp.data.items[0].answers[1].number;
+        let address = resp.data.items[0].answers[2].text;
+        let radiusKM = resp.data.items[0].answers[3].text;
 
-    googleMaps.places({
-        query: cuisineHolder + 'restaurants near' + addressHolder,
-        // radius: radiusHolder
-    }, function (err, response) {
-        if (!err) {
-            // res.send(response.json.results);
-            var searchResult = response.json.results;
-            for (var result in searchResult) {
-              if (arrayContains(SEARCHTYPES, response.json.results.types)) {
-                var placeObject = {};
-                placeObject.name = searchResult[result].name;
-                placeObject.placeId = searchResult[result].place_id;
-                placeObject.address = searchResult[result].formatted_address;
-                placeObject.rating = searchResult[result].rating;
-                placeObject.priceFactor = searchResult[result].price_level;
+      googleMaps.places({
+          query: 'Italian restaurants in Mississauga',//cuisine + 'restaurants near' + address,
+          radius: Number(radiusKM) * 1000,
+          minprice: 0,
+          maxprice: Number(priceFactor) - 1
+      }, function (err, response) {
+          if (!err) {
+              var searchResult = response.json.results;
+              // console.log(JSON.stringify(searchResult));
+              for (var result in searchResult) {
+                if (arrayContains(SEARCHTYPES, response.json.results.types)) {
+                  var placeObject = {};
+                  // getPhoto();
+                  placeObject.name = searchResult[result].name;
+                  placeObject.placeId = searchResult[result].place_id;
+                  placeObject.address = searchResult[result].formatted_address;
+                  placeObject.rating = searchResult[result].rating;
+                  placeObject.priceFactor = searchResult[result].price_level;
+                  placeObject.cuisine = cuisine;
+                  placeObject.photoRef = searchResult[result].photos[0].photo_reference;
 
-                searchResults.push(placeObject);
+                  searchResults.push(placeObject);
+                }
               }
-            }
-        } else {
-            res.send(err);
-        }
-        res.send(JSON.stringify(sortByRating(searchResults)));
+              res.send(sortByRating(searchResults));
+              // console.log(searchResults);
+          } else {
+              res.send(err);
+          }
+      });
     });
 };
+
+async function getTypeformData() {
+  var data = {};
+  let json = await axios.get('https://api.typeform.com/forms/FLdzER/responses', {
+    headers: {
+          Authorization: 'bearer EH9BjBxhQZmsL47bTXypDRS8ZLEdcG1eaPhLJynVvygs'
+        }
+  });
+  return json;
+}

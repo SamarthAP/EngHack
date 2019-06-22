@@ -6,5 +6,6 @@ const router = express.Router();
 const controller = require("../controllers/controller");
 
 router.get('/test', controller.test);
+router.post('/text', controller.sendText);
 
 module.exports = router;
