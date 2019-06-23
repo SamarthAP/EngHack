@@ -7,15 +7,15 @@ const request = require('request');
 const GOOGLEAPIKEY = 'AIzaSyARYSwyEt6vuwBLJ7X9H09l8N2yigdO3ME';
 
 // Typeform API Key
-const TYPEFORMAPIKEY = 'EH9BjBxhQZmsL47bTXypDRS8ZLEdcG1eaPhLJynVvygs';
+const TYPEFORMAPIKEY = 'BPPpAD4BY3mnKJEwQRvWr2CzG7H4hmmmbt5e5hyXvD34';
 
 // Load Standard Library API
-const lib = require('lib');
+const lib = require('lib')({token: 'tok_PS3iFvBcgPM5QVjYq6rhwgFZ8gubbFrVW7PszvLs5CFgePh7QVR8Duja9BMsWXco'});
 const sms = lib.utils.sms['@1.0.11'];
 
 // async function to send a text message given a number and message
 const sendSingleText = async function(number, address) {
-  var mapsLink = 'https://maps.google.com/?q=' + address;
+  var mapsLink = encodeURI('https://maps.google.com/?q=' + address);
   let result = await sms({
   to: number, // (required)
   body: "Here is the link to get directions to the restaurant you've chosen to go to: " + mapsLink
@@ -24,9 +24,13 @@ const sendSingleText = async function(number, address) {
 
 exports.sendText = function (req, res) {
   var restaurantAddress = req.body.restaurantAddress;
-  for (var number in req.body) {
-    var phoneNumber = req.body[number].phoneNumber;
-    sendSingleText(phoneNumber, restaurantAddress);
+  for (var number in req.body.phoneNumbers) {
+    var phoneNumber = req.body.phoneNumbers[number];
+    console.log(phoneNumber)
+    sendSingleText(phoneNumber, restaurantAddress)
+    .catch(err => {
+      console.log('bad texting')
+    })
   }
 };
 
@@ -59,7 +63,7 @@ function arrayContains(arr1, arr2) {
 }
 
 function getTypeformData() {
-    const form = typeform.forms.get({uid: 'FLdzER'});
+    const form = typeform.forms.get({uid: 'KixXGj'});
     return form;
 }
 
@@ -80,7 +84,7 @@ exports.test = function(req, res) {
         let radiusKM = resp.data.items[0].answers[3].text;
 
       googleMaps.places({
-          query: 'Italian restaurants in Mississauga',//cuisine + 'restaurants near' + address,
+          query: cuisine + ' restaurants near ' + address,
           radius: Number(radiusKM) * 1000,
           minprice: 0,
           maxprice: Number(priceFactor) - 1
@@ -114,10 +118,12 @@ exports.test = function(req, res) {
 
 async function getTypeformData() {
   var data = {};
-  let json = await axios.get('https://api.typeform.com/forms/FLdzER/responses', {
+  let json = await axios.get('https://api.typeform.com/forms/KixXGj/responses', {
     headers: {
-          Authorization: 'bearer EH9BjBxhQZmsL47bTXypDRS8ZLEdcG1eaPhLJynVvygs'
+          Authorization: 'bearer BPPpAD4BY3mnKJEwQRvWr2CzG7H4hmmmbt5e5hyXvD34'
         }
+  }).catch(err => {
+    console.log(err)
   });
   return json;
 }
